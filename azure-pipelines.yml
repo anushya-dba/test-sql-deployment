@@ -1,0 +1,46 @@
+# Starter pipeline for SQL safety validation and artifact packaging (Pre-compiled DACPACs)
+trigger:
+  branches:
+    include:
+      - main
+      - releases/*
+ 
+pool:
+  vmImage: 'windows-latest'
+ 
+steps:
+# ------------------------------------------------------------------------------
+# Task 1: Static SQL Safety Validation Gate
+# ------------------------------------------------------------------------------
+- task: PowerShell@2
+  displayName: 'Validate SQL Scripts (Safety Gate)'
+  inputs:
+    targetType: 'filePath'
+    filePath: '$(System.DefaultWorkingDirectory)/scripts/Validate-SqlSafety.ps1'
+    arguments: '-ScriptsPath "$(System.DefaultWorkingDirectory)/Pre-SSDT Scripts"'
+    failOnStderr: true
+    errorActionPreference: 'stop'
+ 
+# ------------------------------------------------------------------------------
+# Task 2: Stage Pre-compiled DACPACs & Deploy Scripts for Azure Releases
+# ------------------------------------------------------------------------------
+- task: CopyFiles@2
+  displayName: 'Copy Pre-existing DACPACs and Deploy Scripts to Staging'
+  inputs:
+    SourceFolder: '$(System.DefaultWorkingDirectory)'
+    Contents: |
+      DacPacs/**
+      Pre-SSDT Scripts/**
+      UpgradeDatabase_Automatic.ps1
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    CleanTargetFolder: true
+ 
+# ------------------------------------------------------------------------------
+# Task 3: Publish Artifact for Azure Release Pipeline
+# ------------------------------------------------------------------------------
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish FinscapeDrop Artifact'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'FinscapeDrop'
+    publishLocation: 'Container'
